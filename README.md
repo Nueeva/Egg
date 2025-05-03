@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://files.catbox.moe/u8pkof.jpg" alt="Egg by Nueva" width="600">
+  <img src="https://files.catbox.moe/sj4jxs.jpeg" alt="Egg by Nueva" width="600">
 </p>
 
 <h1 align="center">
