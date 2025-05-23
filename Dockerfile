@@ -81,7 +81,7 @@ RUN echo 'export NVM_DIR="/home/container/nvm"' >> /home/container/.bashrc && \
 ADD --chown=container:container https://raw.githubusercontent.com/nueeva/egg/main/entrypoint.sh /entrypoint.sh
 
 # Make entrypoint executable
-USER root
+USER container
 RUN chmod +x /entrypoint.sh
 
 # Switch kembali ke container user
