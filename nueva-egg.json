@@ -4,31 +4,34 @@
         "version": "PTDL_v2",
         "update_url": null
     },
-    "exported_at": "2025-05-12T12:00:00+07:00",
-    "name": "©Nueva Developer",
+    "exported_at": "2025-05-23T12:00:00+07:00",
+    "name": "©Nueva Developer Pro",
     "author": "admin@nueva.my.id",
-    "description": "Nueva Developer Node.js Panel with Multi-Version Support (20-22)\r\n\r\nThis panel is built with Ubuntu 22.04 and offers support for modern Node.js versions (20-22) to provide maximum flexibility and performance for your applications. The panel is powered by PM2, a robust process manager that ensures your applications run with high stability, automatic restarts, and real-time monitoring capabilities.\r\n\r\nFeatures:\r\n• Multiple Node.js versions (20, 22) available via NVM\r\n• Advanced system monitoring and beautiful system information display\r\n• Full development environment with essential tools pre-installed\r\n• Support for npm, yarn, and pnpm package managers\r\n• Enhanced security and performance optimizations\r\n• Beautiful UI with color-coded information display\r\n\r\nIdeal for web applications, APIs, Discord bots, WhatsApp bots, Telegram bots, and any Node.js project requiring a stable and flexible runtime environment.",
+    "description": "Nueva Developer Node.js Panel with Multi-Version Support (20-22)\r\n\r\nThis advanced panel is built with Ubuntu 22.04 and offers comprehensive support for modern Node.js versions (20-22) to provide maximum flexibility and performance for your applications. The panel is powered by PM2, a robust process manager that ensures your applications run with high stability, automatic restarts, and real-time monitoring capabilities.\r\n\r\nFeatures:\r\n• Multiple Node.js versions (20, 22) available via NVM with seamless switching\r\n• Advanced system monitoring and beautiful system information display\r\n• Full development environment with essential tools pre-installed\r\n• Support for npm, yarn, and pnpm package managers\r\n• Enhanced security and performance optimizations\r\n• Beautiful UI with color-coded information display\r\n• Auto-update functionality from Git repositories\r\n• Comprehensive error handling and logging\r\n• Health checks and process monitoring\r\n• Support for private repositories with authentication\r\n\r\nIdeal for web applications, APIs, Discord bots, WhatsApp bots, Telegram bots, microservices, and any Node.js project requiring a stable and flexible runtime environment with professional-grade monitoring.",
     "features": [
-        "Multi-Node.js Version Support",
-        "PM2 Process Management",
-        "Advanced System Monitoring",
-        "Full Development Tools",
-        "Multiple Package Manager Support"
+        "nodejs",
+        "pm2",
+        "nvm",
+        "git"
     ],
     "docker_images": {
         "ghcr.io/nueeva/egg:main": "ghcr.io/nueeva/egg:main"
     },
-    "file_denylist": [],
-    "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then git pull; fi; if [ -n \"{{NODE_VERSION}}\" ]; then . $NVM_DIR/nvm.sh && nvm use {{NODE_VERSION}} || nvm use default; fi; if [[ ! -z ${NODE_PACKAGES} ]]; then npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then npm install; fi; pm2 start {{JS_FILE}} --name \"{{SERVER_NAME}}\" {{STARTUP_FLAGS}}; pm2 logs",
+    "file_denylist": [
+        ".env",
+        ".git/*",
+        "node_modules/*"
+    ],
+    "startup": "if [[ -d .git ]] && [[ {{AUTO_UPDATE}} == \"1\" ]]; then echo 'Updating from Git repository...' && git pull; fi; if [ -n \"{{NODE_VERSION}}\" ]; then echo 'Setting Node.js version to {{NODE_VERSION}}...' && . $NVM_DIR/nvm.sh && (nvm use {{NODE_VERSION}} || nvm use default); fi; if [[ ! -z ${NODE_PACKAGES} ]]; then echo 'Installing additional packages: ${NODE_PACKAGES}' && npm install ${NODE_PACKAGES}; fi; if [[ ! -z ${UNNODE_PACKAGES} ]]; then echo 'Uninstalling packages: ${UNNODE_PACKAGES}' && npm uninstall ${UNNODE_PACKAGES}; fi; if [ -f /home/container/package.json ]; then echo 'Installing dependencies from package.json...' && npm install; fi; echo 'Starting application with PM2...' && pm2 start {{JS_FILE}} --name \"{{SERVER_NAME}}\" {{STARTUP_FLAGS}} --log-date-format=\"YYYY-MM-DD HH:mm:ss\" --merge-logs; pm2 logs --lines 100",
     "config": {
         "files": "{}",
-        "startup": "{\r\n    \"Connection\": \"Success\"\r\n}",
+        "startup": "{\r\n    \"Connection\": \"Success\",\r\n    \"Status\": \"Container Started Successfully\"\r\n}",
         "logs": "{}",
-        "stop": "pm2 stop all"
+        "stop": "pm2 stop all && pm2 delete all"
     },
     "scripts": {
         "installation": {
-            "script": "#!/bin/bash\n# NodeJS App Installation Script\n#\n# Server Files: /mnt/server\napt update\napt install -y git curl jq file unzip make gcc g++ python3 python3-dev libtool\n\necho -e \"updating npm. please wait...\"\nnpm install npm@latest -g\n\nmkdir -p /mnt/server\ncd /mnt/server\n\nif [ \"${USER_UPLOAD}\" == \"true\" ] || [ \"${USER_UPLOAD}\" == \"1\" ]; then\n    echo -e \"assuming user knows what they are doing have a good day.\"\n    exit 0\nfi\n\n## add git ending if it's not on the address\nif [[ ${GIT_ADDRESS} != *.git ]]; then\n    GIT_ADDRESS=${GIT_ADDRESS}.git\nfi\n\nif [ -z \"${USERNAME}\" ] && [ -z \"${ACCESS_TOKEN}\" ]; then\n    echo -e \"using anon api call\"\nelse\n    GIT_ADDRESS=\"https://${USERNAME}:${ACCESS_TOKEN}@$(echo -e ${GIT_ADDRESS} | cut -d/ -f3-)\"\nfi\n\n## pull git js repo\nif [ \"$(ls -A /mnt/server)\" ]; then\n    echo -e \"/mnt/server directory is not empty.\"\n    if [ -d .git ]; then\n        echo -e \".git directory exists\"\n        if [ -f .git/config ]; then\n            echo -e \"loading info from git config\"\n            ORIGIN=$(git config --get remote.origin.url)\n        else\n            echo -e \"files found with no git config\"\n            echo -e \"closing out without touching things to not break anything\"\n            exit 10\n        fi\n    fi\n\n    if [ \"${ORIGIN}\" == \"${GIT_ADDRESS}\" ]; then\n        echo \"pulling latest from github\"\n        git pull\n    fi\nelse\n    echo -e \"/mnt/server is empty.\\ncloning files into repo\"\n    if [ -z ${BRANCH} ]; then\n        echo -e \"cloning default branch\"\n        git clone ${GIT_ADDRESS} .\n    else\n        echo -e \"cloning ${BRANCH}'\"\n        git clone --single-branch --branch ${BRANCH} ${GIT_ADDRESS} .\n    fi\n\nfi\n\necho \"Installing nodejs packages\"\nif [[ ! -z ${NODE_PACKAGES} ]]; then\n    npm install ${NODE_PACKAGES}\nfi\n\nif [ -f /mnt/server/package.json ]; then\n    npm install --production\nfi\n\necho -e \"install complete\"\nexit 0",
+            "script": "#!/bin/bash\r\n# NodeJS App Installation Script for Nueva Developer Panel\r\n#\r\n# Server Files: /mnt/server\r\n\r\nset -e\r\n\r\necho \"=== Nueva Developer Panel Installation ===\"\r\necho \"Updating system packages...\"\r\napt update && apt upgrade -y\r\n\r\necho \"Installing essential development tools...\"\r\napt install -y git curl jq file unzip make gcc g++ python3 python3-dev libtool build-essential pkg-config\r\n\r\necho \"Updating npm to latest version...\"\r\nnpm install npm@latest -g\r\n\r\necho \"Creating server directory...\"\r\nmkdir -p /mnt/server\r\ncd /mnt/server\r\n\r\nif [ \"${USER_UPLOAD}\" == \"true\" ] || [ \"${USER_UPLOAD}\" == \"1\" ]; then\r\n    echo \"User upload mode enabled. Skipping Git operations.\"\r\n    exit 0\r\nfi\r\n\r\n# Git repository handling\r\nif [ ! -z \"${GIT_ADDRESS}\" ]; then\r\n    # Add git ending if it's not on the address\r\n    if [[ ${GIT_ADDRESS} != *.git ]]; then\r\n        GIT_ADDRESS=${GIT_ADDRESS}.git\r\n    fi\r\n\r\n    # Handle authentication for private repositories\r\n    if [ -z \"${USERNAME}\" ] && [ -z \"${ACCESS_TOKEN}\" ]; then\r\n        echo \"Using anonymous Git access\"\r\n    else\r\n        echo \"Using authenticated Git access\"\r\n        GIT_ADDRESS=\"https://${USERNAME}:${ACCESS_TOKEN}@$(echo -e ${GIT_ADDRESS} | cut -d/ -f3-)\"\r\n    fi\r\n\r\n    # Clone or update repository\r\n    if [ \"$(ls -A /mnt/server)\" ]; then\r\n        echo \"Directory is not empty. Checking for existing Git repository...\"\r\n        if [ -d .git ]; then\r\n            echo \"Git repository detected.\"\r\n            if [ -f .git/config ]; then\r\n                echo \"Loading configuration from Git...\"\r\n                ORIGIN=$(git config --get remote.origin.url)\r\n                if [ \"${ORIGIN}\" == \"${GIT_ADDRESS}\" ]; then\r\n                    echo \"Updating from matching repository...\"\r\n                    git pull\r\n                else\r\n                    echo \"Repository URL mismatch. Skipping update.\"\r\n                fi\r\n            else\r\n                echo \"Invalid Git configuration found. Exiting to prevent data loss.\"\r\n                exit 10\r\n            fi\r\n        else\r\n            echo \"No Git repository found in non-empty directory. Exiting to prevent data loss.\"\r\n            exit 11\r\n        fi\r\n    else\r\n        echo \"Cloning repository from: ${GIT_ADDRESS}\"\r\n        if [ -z ${BRANCH} ]; then\r\n            echo \"Cloning default branch...\"\r\n            git clone ${GIT_ADDRESS} .\r\n        else\r\n            echo \"Cloning branch: ${BRANCH}\"\r\n            git clone --single-branch --branch ${BRANCH} ${GIT_ADDRESS} .\r\n        fi\r\n    fi\r\nelse\r\n    echo \"No Git repository specified. Proceeding with existing files.\"\r\nfi\r\n\r\n# Install additional Node.js packages if specified\r\nif [[ ! -z ${NODE_PACKAGES} ]]; then\r\n    echo \"Installing additional Node.js packages: ${NODE_PACKAGES}\"\r\n    npm install ${NODE_PACKAGES}\r\nfi\r\n\r\n# Install dependencies from package.json if it exists\r\nif [ -f /mnt/server/package.json ]; then\r\n    echo \"Installing dependencies from package.json...\"\r\n    npm install --production\r\n    echo \"Dependencies installed successfully.\"\r\nelse\r\n    echo \"No package.json found. Skipping dependency installation.\"\r\nfi\r\n\r\n# Set proper permissions\r\nchown -R container:container /mnt/server\r\nchmod -R 755 /mnt/server\r\n\r\necho \"=== Installation completed successfully ===\"\r\nexit 0",
             "container": "ghcr.io/nueeva/egg:main",
             "entrypoint": "bash"
         }
@@ -36,7 +39,7 @@
     "variables": [
         {
             "name": "Git Repository URL",
-            "description": "The Git repository URL to clone from (e.g., https://github.com/username/repo)",
+            "description": "The Git repository URL to clone from (e.g., https://github.com/username/repo). Leave empty if using uploaded files.",
             "env_variable": "GIT_ADDRESS",
             "default_value": "",
             "user_viewable": true,
@@ -76,87 +79,92 @@
         },
         {
             "name": "Main JavaScript File",
-            "description": "The main JavaScript file to run with PM2",
+            "description": "The main JavaScript file to run with PM2 (e.g., index.js, app.js, server.js)",
             "env_variable": "JS_FILE",
             "default_value": "index.js",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string",
+            "rules": "required|string|regex:/^[a-zA-Z0-9._-]+\\.js$/",
             "field_type": "text"
         },
         {
             "name": "Node.js Version",
-            "description": "Specify the Node.js version to use (20, 22, or leave empty for default)",
+            "description": "Specify the Node.js version to use (20, 22, or leave empty for default). Recommended: 20 for stability, 22 for latest features.",
             "env_variable": "NODE_VERSION",
             "default_value": "20",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "nullable|string|in:20,22",
-            "field_type": "select",
-            "field_options": {
-                "": "Default (20)",
-                "20": "Node.js 20 LTS",
-                "22": "Node.js 22"
-            }
+            "rules": "nullable|string|in:,20,22",
+            "field_type": "text"
         },
         {
             "name": "Additional NPM Packages",
-            "description": "Additional npm packages to install (space-separated)",
+            "description": "Additional npm packages to install (space-separated, e.g., 'express mongoose dotenv')",
             "env_variable": "NODE_PACKAGES",
             "default_value": "",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "nullable|string",
+            "rules": "nullable|string|max:500",
             "field_type": "text"
         },
         {
             "name": "NPM Packages to Uninstall",
-            "description": "npm packages to uninstall (space-separated)",
+            "description": "npm packages to uninstall on startup (space-separated)",
             "env_variable": "UNNODE_PACKAGES",
             "default_value": "",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "nullable|string",
+            "rules": "nullable|string|max:500",
             "field_type": "text"
         },
         {
             "name": "Git Username",
-            "description": "Git username for private repositories",
+            "description": "Git username for private repositories (leave empty for public repos)",
             "env_variable": "USERNAME",
             "default_value": "",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "nullable|string",
+            "rules": "nullable|string|max:100",
             "field_type": "text"
         },
         {
             "name": "Git Access Token",
-            "description": "Git access token for private repositories",
+            "description": "Git access token or password for private repositories (leave empty for public repos)",
             "env_variable": "ACCESS_TOKEN",
             "default_value": "",
             "user_viewable": true,
-            "user_editable": true,
-            "rules": "nullable|string",
+            "user_editable": false,
+            "rules": "nullable|string|max:500",
             "field_type": "text"
         },
         {
             "name": "Server Name",
-            "description": "A name for your server process in PM2",
+            "description": "A name for your server process in PM2 (used for process identification)",
             "env_variable": "SERVER_NAME",
             "default_value": "nueva-app",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "required|string|max:50",
+            "rules": "required|string|max:50|regex:/^[a-zA-Z0-9_-]+$/",
             "field_type": "text"
         },
         {
             "name": "PM2 Startup Flags",
-            "description": "Additional flags for PM2 startup (e.g., --watch)",
+            "description": "Additional flags for PM2 startup (e.g., '--watch --ignore-watch=\"node_modules\"' for development)",
             "env_variable": "STARTUP_FLAGS",
             "default_value": "",
             "user_viewable": true,
             "user_editable": true,
-            "rules": "nullable|string",
+            "rules": "nullable|string|max:200",
+            "field_type": "text"
+        },
+        {
+            "name": "Environment Mode",
+            "description": "Set the NODE_ENV environment variable",
+            "env_variable": "NODE_ENV",
+            "default_value": "production",
+            "user_viewable": true,
+            "user_editable": true,
+            "rules": "required|string|in:development,production,test",
             "field_type": "text"
         }
     ]
