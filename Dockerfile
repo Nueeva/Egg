@@ -23,7 +23,7 @@ RUN apt-get update && apt-get upgrade -y && \
     # Network utilities
     iputils-ping dnsutils net-tools iproute2 netcat-openbsd \
     # System utilities
-    locales tzdata ca-certificates sudo \  
+    locales tzdata ca-certificates sudo \
     # Database support
     sqlite3 libsqlite3-dev \
     # Media processing
@@ -47,10 +47,6 @@ ENV NVM_DIR /usr/local/nvm
 RUN mkdir -p $NVM_DIR && \
     curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
 
-# Add NVM to path and install Node.js versions
-ENV NODE_PATH $NVM_DIR/versions/node/v20.12.1/lib/node_modules
-ENV PATH $NVM_DIR/versions/node/v20.12.1/bin:$PATH
-
 # Install Node.js versions 20-22 using NVM
 RUN . $NVM_DIR/nvm.sh && \
     # Install LTS Node.js versions
@@ -59,34 +55,49 @@ RUN . $NVM_DIR/nvm.sh && \
     # Set default to Node.js 20
     nvm alias default 20 && \
     # Install global packages for all Node.js versions
-    nvm use 20 && npm install -g pm2 yarn pnpm && \
-    nvm use 22 && npm install -g pm2 yarn pnpm
+    nvm use 20 && npm install -g pm2@latest yarn@latest pnpm@latest && \
+    nvm use 22 && npm install -g pm2@latest yarn@latest pnpm@latest
 
-# Copy NVM configuration to container user's home
-RUN cp -R $NVM_DIR /home/container/ && \
-    chown -R container:container /home/container/nvm
+# Copy NVM configuration to container user's home and set proper permissions
+RUN cp -R $NVM_DIR /home/container/nvm && \
+    chown -R container:container /home/container/nvm && \
+    chmod -R 755 /home/container/nvm
+
+# Create working directory and set permissions
+RUN mkdir -p /home/container && \
+    chown -R container:container /home/container
 
 # Switch to container user
 USER container
 WORKDIR /home/container
 
-# Add NVM to container user's bash profile
+# Add NVM to container user's bash profile with proper sourcing
 RUN echo 'export NVM_DIR="/home/container/nvm"' >> /home/container/.bashrc && \
     echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> /home/container/.bashrc && \
-    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> /home/container/.bashrc
+    echo '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"' >> /home/container/.bashrc && \
+    echo 'export PATH="$NVM_DIR/versions/node/$(nvm version default)/bin:$PATH"' >> /home/container/.bashrc
 
-# Copy the entrypoint script
+# Copy the entrypoint script with proper ownership
 COPY --chown=container:container ./entrypoint.sh /entrypoint.sh
 
 # Make the entrypoint script executable
 USER root
 RUN chmod +x /entrypoint.sh
+
+# Switch back to container user
 USER container
 
-# Set environment variables
+# Set environment variables with proper NVM integration
 ENV USER=container \
     HOME=/home/container \
-    PATH=/home/container/nvm/versions/node/v20.12.1/bin:$PATH
+    NVM_DIR=/home/container/nvm
+
+# Health check to ensure the container is working properly
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node --version || exit 1
+
+# Expose common ports (can be overridden)
+EXPOSE 3000 8000 8080
 
 # Specify the entrypoint
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
