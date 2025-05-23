@@ -78,14 +78,7 @@ RUN echo 'export NVM_DIR="/home/container/nvm"' >> /home/container/.bashrc && \
     echo 'export PATH="$NVM_DIR/versions/node/$(nvm version default)/bin:$PATH"' >> /home/container/.bashrc
 
 # Copy entrypoint script dari GitHub repository
-ADD --chown=container:container https://raw.githubusercontent.com/nueeva/egg/main/entrypoint.sh /entrypoint.sh
-
-# Make entrypoint executable
-USER container
-RUN chmod +x /entrypoint.sh
-
-# Switch kembali ke container user
-USER container
+COPY ./entrypoint.sh /entrypoint.sh
 
 # Set final environment variables
 ENV USER=container \
@@ -100,4 +93,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 3000 8000 8080 5000 4000
 
 # Set entrypoint
-ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
+CMD ["/bin/bash", "/entrypoint.sh"]
