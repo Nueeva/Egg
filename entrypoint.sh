@@ -3,219 +3,231 @@
 # Exit on any error
 set -e
 
-# Set colors for better readability
+# Color definitions untuk output yang indah
 RED='\033[1;31m'
 GREEN='\033[1;32m'
 BLUE='\033[1;34m'
 CYAN='\033[1;36m'
 YELLOW='\033[1;33m'
 MAGENTA='\033[1;35m'
-ORANGE='\033[0;33m'
-PURPLE='\033[0;35m'
 WHITE='\033[1;37m'
 NC='\033[0m' # No Color
 
-# Load NVM properly
+# Function untuk print colored text
+print_color() {
+    local color=$1
+    local text=$2
+    echo -e "${color}${text}${NC}"
+}
+
+# Function untuk membuat loading animation
+loading_animation() {
+    local text="$1"
+    local duration=${2:-3}
+    
+    echo -ne "${CYAN}${text}${NC}"
+    for ((i=0; i<duration; i++)); do
+        for dot in "." ".." "..."; do
+            echo -ne "\r${CYAN}${text}${dot}${NC}"
+            sleep 0.3
+        done
+    done
+    echo -e "\r${GREEN}${text}... Done!${NC}"
+}
+
+# Load NVM environment
 export NVM_DIR="/home/container/nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
 
-# Banner for Nueva Panel
+# Clear screen dan show banner
 clear
-echo -e "${RED}"
-echo -e "╔═══════════════════════════════════╗"
-echo -e "║    ${MAGENTA}Welcome to Nueva Developer${NC}${RED}    ║"
-echo -e "╚═══════════════════════════════════╝"
-echo -e "${NC}"
-sleep 1
+print_color $RED "╔═══════════════════════════════════════╗"
+print_color $RED "║    ${MAGENTA}Nueva Developer Panel v2.0${NC}${RED}     ║"
+print_color $RED "║         ${WHITE}Starting Your Server${NC}${RED}         ║"
+print_color $RED "║     ${CYAN}github.com/nueeva/egg:main${NC}${RED}     ║"
+print_color $RED "╚═══════════════════════════════════════╝"
+echo ""
 
-# Loading animation
-echo -e "${CYAN}Loading system information...${NC}"
-sleep 0.5
+# Loading system information
+loading_animation "Loading system information" 2
 
-# Fancy loading bar
-BAR_SIZE=30
-for ((i=0; i<=$BAR_SIZE; i++)); do
-    progress=$((i * 100 / BAR_SIZE))
-    filled=$((i * BAR_SIZE / BAR_SIZE))
-    bar=$(printf "%-${BAR_SIZE}s" $(printf "%0.s█" $(seq 1 $filled)))
-    echo -ne "\r[${GREEN}${bar// /.}${NC}] ${WHITE}${progress}%${NC}"
-    sleep 0.03
-done
-echo -e "\n"
-
-# System information collection with error handling
-OS=$(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || echo "Ubuntu 22.04")
-IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "Not available")
-CPU=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | awk -F': ' '{print $2}' || echo "Not available")
-CORES=$(grep -c processor /proc/cpuinfo 2>/dev/null || echo "Not available")
-RAM=$(awk '/MemTotal/ {printf "%.2f GB", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo "Not available")
-DISK=$(df -h / 2>/dev/null | awk '/\/$/ {print $2}' || echo "Not available")
-USED_DISK=$(df -h / 2>/dev/null | awk '/\/$/ {print $3}' || echo "Not available")
-FREE_DISK=$(df -h / 2>/dev/null | awk '/\/$/ {print $4}' || echo "Not available")
-TIMEZONE=$(cat /etc/timezone 2>/dev/null || echo "UTC")
-DATE=$(date '+%Y-%m-%d %H:%M:%S' 2>/dev/null || echo "Not available")
-UPTIME=$(uptime -p 2>/dev/null || echo "Not available")
-
-# Get Node.js and NPM versions with error handling
-if command -v node >/dev/null 2>&1; then
-    NODE_VERSION=$(node -v)
-else
-    NODE_VERSION="Not installed"
-fi
-
-if command -v npm >/dev/null 2>&1; then
-    NPM_VERSION=$(npm -v)
-else
-    NPM_VERSION="Not installed"
-fi
-
-# Function to print system info with fancy formatting
-print_system_info() {
-    local label="$1"
-    local value="$2"
-    local color="$3"
+# Collect system information dengan error handling
+get_system_info() {
+    OS=$(cat /etc/os-release 2>/dev/null | grep PRETTY_NAME | cut -d'"' -f2 || echo "Ubuntu 22.04")
+    IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "127.0.0.1")
+    CPU=$(grep -m1 'model name' /proc/cpuinfo 2>/dev/null | awk -F': ' '{print $2}' | cut -c1-30 || echo "Unknown CPU")
+    CORES=$(nproc 2>/dev/null || echo "Unknown")
+    RAM=$(awk '/MemTotal/ {printf "%.1f GB", $2/1024/1024}' /proc/meminfo 2>/dev/null || echo "Unknown")
+    DISK_TOTAL=$(df -h / 2>/dev/null | awk '/\/$/ {print $2}' || echo "Unknown")
+    DISK_USED=$(df -h / 2>/dev/null | awk '/\/$/ {print $3}' || echo "Unknown")
+    UPTIME=$(uptime -p 2>/dev/null || echo "Unknown")
     
-    printf "${color}%-12s${NC}: ${CYAN}%s${NC}\n" "$label" "$value"
+    # Get Node.js version
+    if command -v node >/dev/null 2>&1; then
+        NODE_VERSION_CURRENT=$(node -v)
+        NPM_VERSION=$(npm -v)
+    else
+        NODE_VERSION_CURRENT="Not available"
+        NPM_VERSION="Not available"
+    fi
+    
+    # Get PM2 version
+    if command -v pm2 >/dev/null 2>&1; then
+        PM2_VERSION=$(pm2 -v)
+    else
+        PM2_VERSION="Not available"
+    fi
 }
 
-# Display system information in a fancy table
-echo -e "${YELLOW}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║${WHITE}                    SYSTEM INFORMATION                  ${YELLOW}║${NC}"
-echo -e "${YELLOW}╠════════════════════════════════════════════════════════╣${NC}"
-print_system_info "OS" "$OS" "${BLUE}"
-print_system_info "IP Address" "$IP" "${YELLOW}"
-print_system_info "CPU" "$CPU" "${MAGENTA}"
-print_system_info "CPU Cores" "$CORES" "${GREEN}"
-print_system_info "RAM" "$RAM" "${RED}"
-print_system_info "Disk Total" "$DISK" "${ORANGE}"
-print_system_info "Disk Used" "$USED_DISK" "${PURPLE}"
-print_system_info "Disk Free" "$FREE_DISK" "${GREEN}"
-print_system_info "Timezone" "$TIMEZONE" "${MAGENTA}"
-print_system_info "Date" "$DATE" "${CYAN}"
-print_system_info "Node.js" "$NODE_VERSION" "${GREEN}"
-print_system_info "NPM" "$NPM_VERSION" "${BLUE}"
-print_system_info "Uptime" "$UPTIME" "${YELLOW}"
-echo -e "${YELLOW}╚════════════════════════════════════════════════════════╝${NC}"
-sleep 1
+get_system_info
 
-# Change to working directory
+# Display system information
+print_color $YELLOW "╔══════════════════════════════════════════════════╗"
+print_color $YELLOW "║${WHITE}                SYSTEM OVERVIEW                  ${YELLOW}║"
+print_color $YELLOW "╠══════════════════════════════════════════════════╣"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "OS" "$OS"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "IP Address" "$IP"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "CPU" "$CPU"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s cores${NC}\n" "CPU Cores" "$CORES"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "Memory" "$RAM"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "Disk Total" "$DISK_TOTAL"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "Disk Used" "$DISK_USED"
+printf "${BLUE}%-12s${NC}: ${CYAN}%s${NC}\n" "Uptime" "$UPTIME"
+printf "${BLUE}%-12s${NC}: ${GREEN}%s${NC}\n" "Node.js" "$NODE_VERSION_CURRENT"
+printf "${BLUE}%-12s${NC}: ${GREEN}%s${NC}\n" "NPM" "$NPM_VERSION"
+printf "${BLUE}%-12s${NC}: ${GREEN}%s${NC}\n" "PM2" "$PM2_VERSION"
+printf "${BLUE}%-12s${NC}: ${MAGENTA}%s${NC}\n" "Repository" "nueeva/egg:main"
+print_color $YELLOW "╚══════════════════════════════════════════════════╝"
+echo ""
+
+# Change ke working directory
 cd /home/container
 
-# Make internal Docker IP address available to processes
+# Set up internal IP untuk Docker
 INTERNAL_IP=$(ip route get 1 2>/dev/null | awk '{print $(NF-2);exit}' || echo "127.0.0.1")
 export INTERNAL_IP
 
-# Check and setup Node.js version if specified
-if [ -n "${NODE_VERSION}" ] && [ "${NODE_VERSION}" != "Not installed" ]; then
-    echo -e "\n${CYAN}Setting up Node.js version: ${NODE_VERSION}${NC}"
+# Handle Node.js version switching
+if [ -n "${NODE_VERSION}" ] && [ "${NODE_VERSION}" != "Not available" ]; then
+    print_color $CYAN "Setting up Node.js environment..."
+    
     if command -v nvm >/dev/null 2>&1; then
-        nvm use "${NODE_VERSION}" 2>/dev/null || {
-            echo -e "${YELLOW}Warning: Node.js version ${NODE_VERSION} not found. Using default version.${NC}"
-            nvm use default 2>/dev/null || echo -e "${RED}Error: Could not set Node.js version${NC}"
-        }
-    else
-        echo -e "${YELLOW}Warning: NVM not available, using system Node.js${NC}"
-    fi
-fi
-
-# Get updated versions after potential version switch
-if command -v node >/dev/null 2>&1; then
-    NODE_VERSION=$(node -v)
-    NPM_VERSION=$(npm -v 2>/dev/null || echo "Not available")
-    PM2_VERSION=$(pm2 -v 2>/dev/null || echo "Not available")
-else
-    echo -e "${RED}Error: Node.js is not available!${NC}"
-    exit 1
-fi
-
-# Display environment information
-echo -e "\n${GREEN}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║${WHITE}                 ENVIRONMENT DETAILS                   ${GREEN}║${NC}"
-echo -e "${GREEN}╠════════════════════════════════════════════════════════╣${NC}"
-echo -e "${GREEN}║${NC} ${CYAN}Node.js Version${NC}: ${NODE_VERSION}"
-echo -e "${GREEN}║${NC} ${CYAN}NPM Version${NC}: ${NPM_VERSION}"
-echo -e "${GREEN}║${NC} ${CYAN}PM2 Version${NC}: ${PM2_VERSION}"
-echo -e "${GREEN}║${NC} ${CYAN}Working Directory${NC}: $(pwd)"
-echo -e "${GREEN}║${NC} ${CYAN}Internal IP${NC}: ${INTERNAL_IP}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════╝${NC}"
-sleep 1
-
-# Validate startup command exists
-if [ -z "${STARTUP}" ]; then
-    echo -e "${RED}Error: STARTUP command is not defined!${NC}"
-    exit 1
-fi
-
-# Replace Startup Variables
-MODIFIED_STARTUP=$(echo -e "${STARTUP}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
-echo -e "\n${CYAN}▶ Modified Startup Command:${NC}"
-echo -e "${YELLOW}:/home/container$ ${WHITE}${MODIFIED_STARTUP}${NC}"
-
-# Check if the JS_FILE exists and provide helpful information
-if [ ! -z "$JS_FILE" ]; then
-    if [ ! -f "$JS_FILE" ]; then
-        echo -e "\n${RED}Warning: $JS_FILE does not exist in the current directory!${NC}"
-        echo -e "${YELLOW}Available JavaScript files:${NC}"
-        if ls *.js >/dev/null 2>&1; then
-            find . -maxdepth 1 -name "*.js" | sort | while read file; do
-                echo -e "${CYAN}- ${file:2}${NC}"
-            done
+        if nvm use "${NODE_VERSION}" 2>/dev/null; then
+            print_color $GREEN "✓ Successfully switched to Node.js ${NODE_VERSION}"
         else
-            echo -e "${CYAN}No JavaScript files found in current directory.${NC}"
+            print_color $YELLOW "⚠ Could not switch to Node.js ${NODE_VERSION}, using default"
+            nvm use default 2>/dev/null || true
         fi
-        echo -e "${YELLOW}Available files:${NC}"
-        ls -la | head -10
-        echo ""
     else
-        echo -e "\n${GREEN}✓ Main file found: ${JS_FILE}${NC}"
+        print_color $YELLOW "⚠ NVM not available, using system Node.js"
+    fi
+    
+    # Update versions setelah potential switch
+    if command -v node >/dev/null 2>&1; then
+        CURRENT_NODE=$(node -v)
+        print_color $GREEN "Current Node.js version: ${CURRENT_NODE}"
     fi
 fi
 
-# Check if package.json exists
+# Handle auto-update dari Git
+if [ "${AUTO_UPDATE}" == "1" ] && [ -d .git ]; then
+    print_color $CYAN "Auto-update enabled. Checking for updates..."
+    if git pull 2>/dev/null; then
+        print_color $GREEN "✓ Repository updated successfully"
+    else
+        print_color $YELLOW "⚠ Could not update repository"
+    fi
+fi
+
+# Install additional packages jika specified
+if [ -n "${NODE_PACKAGES}" ]; then
+    print_color $CYAN "Installing additional packages: ${NODE_PACKAGES}"
+    if npm install ${NODE_PACKAGES}; then
+        print_color $GREEN "✓ Additional packages installed"
+    else
+        print_color $YELLOW "⚠ Some packages may have failed to install"
+    fi
+fi
+
+# Install dependencies dari package.json
 if [ -f "package.json" ]; then
-    echo -e "${GREEN}✓ package.json found${NC}"
-    # Show package.json main script if available
-    MAIN_SCRIPT=$(grep -o '"main"[[:space:]]*:[[:space:]]*"[^"]*"' package.json 2>/dev/null | cut -d'"' -f4)
-    if [ ! -z "$MAIN_SCRIPT" ]; then
-        echo -e "${CYAN}Package.json main script: ${MAIN_SCRIPT}${NC}"
+    print_color $CYAN "Installing dependencies from package.json..."
+    if npm install; then
+        print_color $GREEN "✓ Dependencies installed successfully"
+    else
+        print_color $YELLOW "⚠ Some dependencies may have failed to install"
     fi
 else
-    echo -e "${YELLOW}Note: No package.json found${NC}"
+    print_color $YELLOW "ℹ No package.json found"
 fi
 
-# Start the server with visual feedback
-echo -e "\n${GREEN}╔════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║${WHITE}             STARTING SERVER PROCESS                  ${GREEN}║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════╝${NC}"
+# Validate startup command
+if [ -z "${STARTUP_CMD}" ]; then
+    print_color $RED "✗ Error: No startup command specified!"
+    print_color $YELLOW "Please set the STARTUP_CMD environment variable"
+    exit 1
+fi
 
-# Add a brief loader animation
-for i in {1..5}; do
-    echo -ne "${YELLOW}Starting${NC}"
-    for j in {1..3}; do
-        echo -ne "${YELLOW}.${NC}"
-        sleep 0.2
-    done
-    echo -ne "\r\033[K"
-    sleep 0.2
-done
+# Replace variables dalam startup command
+MODIFIED_STARTUP=$(echo "${STARTUP_CMD}" | sed -e 's/{{/${/g' -e 's/}}/}/g')
+
+# Display startup information
+print_color $GREEN "╔══════════════════════════════════════════════════╗"
+print_color $GREEN "║${WHITE}              STARTING APPLICATION               ${GREEN}║"
+print_color $GREEN "╚══════════════════════════════════════════════════╝"
+echo ""
+print_color $CYAN "Working Directory: $(pwd)"
+print_color $CYAN "Startup Command: ${WHITE}${MODIFIED_STARTUP}"
+print_color $CYAN "Docker Image: ${WHITE}ghcr.io/nueeva/egg:main"
+echo ""
+
+# Check untuk main application file
+if [[ "${MODIFIED_STARTUP}" =~ node[[:space:]]+([^[:space:]]+\.js) ]]; then
+    MAIN_FILE="${BASH_REMATCH[1]}"
+    if [ -f "${MAIN_FILE}" ]; then
+        print_color $GREEN "✓ Main file found: ${MAIN_FILE}"
+    else
+        print_color $YELLOW "⚠ Warning: ${MAIN_FILE} not found"
+        print_color $CYAN "Available JavaScript files:"
+        find . -maxdepth 2 -name "*.js" | head -5 | while read file; do
+            echo "  - ${file#./}"
+        done
+    fi
+fi
 
 # Ensure PM2 is available
 if ! command -v pm2 >/dev/null 2>&1; then
-    echo -e "${RED}Error: PM2 is not available!${NC}"
-    echo -e "${YELLOW}Installing PM2...${NC}"
-    npm install -g pm2@latest || {
-        echo -e "${RED}Failed to install PM2!${NC}"
-        exit 1
-    }
+    print_color $YELLOW "Installing PM2..."
+    npm install -g pm2@latest
 fi
 
-# Run the modified startup command with error handling
-echo -e "${YELLOW}Server is now starting...${NC}\n"
+# Final startup sequence
+print_color $YELLOW "Starting application..."
+sleep 1
 
-# Execute the startup command
+# Execute startup command dengan proper error handling
 eval "${MODIFIED_STARTUP}" || {
-    echo -e "\n${RED}Error: Startup command failed!${NC}"
-    echo -e "${YELLOW}Command that failed: ${MODIFIED_STARTUP}${NC}"
-    exit 1
+    print_color $RED "✗ Startup command failed!"
+    print_color $YELLOW "Command: ${MODIFIED_STARTUP}"
+    print_color $CYAN "Attempting alternative startup methods..."
+    
+    # Try alternative startup methods
+    if [ -f "package.json" ]; then
+        if npm start 2>/dev/null; then
+            print_color $GREEN "✓ Started using npm start"
+        elif [ -f "index.js" ]; then
+            node index.js || exit 1
+        elif [ -f "app.js" ]; then
+            node app.js || exit 1
+        else
+            print_color $RED "✗ No suitable startup method found"
+            exit 1
+        fi
+    else
+        exit 1
+    fi
 }
+
+print_color $GREEN "✓ Application started successfully!"
+print_color $CYAN "Using Nueva Developer Panel from github.com/nueeva/egg:main"
